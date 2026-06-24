@@ -19,14 +19,6 @@ DataSense is a full-stack, AI-powered Exploratory Data Analysis (EDA) tool that 
 
 ---
 
-## 🎥 Demo Video
-
-> 📺 **Watch DataSense in action!** *(Replace with actual video/GIF link once deployed)*
-> 
-> [![DataSense Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
-
----
-
 ## 🚀 Architecture & Flowchart
 
 DataSense operates using an **Agentic AI Pipeline**. The user asks a question, and the LLM acts as an agent, writing Python code to analyze the data. The code is executed in a secure backend sandbox, and the results are rendered beautifully on the frontend.
