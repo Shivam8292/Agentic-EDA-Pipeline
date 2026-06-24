@@ -1,14 +1,80 @@
-# 🧠 DataSense — Agentic EDA Assistant
+<div align="center">
+
+# 🧠 DataSense
+**Agentic Exploratory Data Analysis (EDA) Pipeline**
+
+[![React](https://img.shields.io/badge/React-18-blue.svg?style=for-the-badge&logo=react)](https://reactjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Gemini](https://img.shields.io/badge/Google%20Gemini-1.5%20Flash-4285F4.svg?style=for-the-badge&logo=google)](https://ai.google.dev/)
+[![Plotly](https://img.shields.io/badge/Plotly-Interactive-3F4F75.svg?style=for-the-badge&logo=plotly)](https://plotly.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 > **Upload your data. Ask your questions. Get analyst-grade insights instantly.**
 
-DataSense is a full-stack, AI-powered Exploratory Data Analysis (EDA) tool that automatically cleans datasets, answers questions using Gemini 1.5 Flash, generates interactive Plotly charts, and exports polished PDF/PowerPoint/Excel reports.
+DataSense is a full-stack, AI-powered Exploratory Data Analysis (EDA) tool that automatically cleans datasets, answers questions using **Google Gemini 2.0 Flash**, generates interactive **Plotly** charts, and exports polished **PDF/PowerPoint/Excel** reports.
+
+[Live Demo](#) • [Features](#-features) • [Installation](#-local-setup) • [Architecture](#-architecture)
+
+</div>
 
 ---
 
-## 🔗 Live Demo
+## 🎥 Demo Video
 
-> Coming soon — deploying to Vercel + Railway
+> 📺 **Watch DataSense in action!** *(Replace with actual video/GIF link once deployed)*
+> 
+> [![DataSense Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+
+---
+
+## 🚀 Architecture & Flowchart
+
+DataSense operates using an **Agentic AI Pipeline**. The user asks a question, and the LLM acts as an agent, writing Python code to analyze the data. The code is executed in a secure backend sandbox, and the results are rendered beautifully on the frontend.
+
+```mermaid
+graph TD
+    %% Styling
+    classDef frontend fill:#111118,stroke:#6366F1,stroke-width:2px,color:#F0F0F5
+    classDef backend fill:#1A1A24,stroke:#10B981,stroke-width:2px,color:#F0F0F5
+    classDef llm fill:#0A0A0F,stroke:#F59E0B,stroke-width:2px,color:#F0F0F5
+    classDef storage fill:#1A1A24,stroke:#3B82F6,stroke-width:2px,color:#F0F0F5
+
+    %% Nodes
+    User([👨‍💻 User]) --> |Uploads CSV/Excel| UI
+    User --> |Asks Question| UI
+    
+    subgraph Frontend [React / Tailwind Frontend]
+        UI(Dashboard UI):::frontend
+    end
+
+    subgraph Backend [FastAPI Backend]
+        API(API Router):::backend
+        Cleaner(Cleaning Service<br/>Fills Nulls, Fixes Types):::backend
+        Sandbox(Execution Sandbox<br/>Runs Python/Pandas):::backend
+        Export(Export Service<br/>PDF, PPT, Excel):::backend
+    end
+
+    subgraph AI [Google Gemini]
+        LLM{Gemini 2.0 Flash<br/>Writes Code & Insights}:::llm
+    end
+    
+    Session[(In-Memory Session Store)]:::storage
+
+    %% Flow
+    UI -->|POST /api/upload| API
+    API --> Cleaner
+    Cleaner --> Session
+
+    UI -->|POST /api/analyze| API
+    API -->|Sends Schema + Question| LLM
+    LLM -->|Returns Pandas/Plotly Code| Sandbox
+    Sandbox -->|Executes Code on Data| Session
+    Sandbox -->|Returns Chart JSON| API
+    API -->|Renders Chart & Insight| UI
+    
+    UI -->|GET /api/export| Export
+    Export -->|Downloads Report| User
+```
 
 ---
 
@@ -16,30 +82,30 @@ DataSense is a full-stack, AI-powered Exploratory Data Analysis (EDA) tool that 
 
 | Feature | Description |
 |---|---|
-| 📁 **Dataset Upload** | Drag & drop CSV or Excel (.xlsx/.xls) files up to 50MB |
-| 🧹 **Auto Cleaning** | Fills nulls, removes duplicates, fixes types, flags outliers |
-| 🤖 **AI Analysis** | Ask up to 10 questions in plain English |
-| 📊 **Smart Charts** | Bar, line, scatter, pie, heatmap, box — chosen automatically |
-| 💡 **Analyst Insights** | Gemini generates 3–4 sentence professional narratives per chart |
-| 📤 **Export Reports** | Download PDF report, PowerPoint slides, or cleaned Excel |
-| 🌑 **Dark UI** | Bloomberg-meets-Vercel aesthetic with animated particle background |
+| 📁 **Smart Upload** | Drag & drop CSV or Excel files. Instantly previews the first 50 rows. |
+| 🧹 **Auto Cleaning** | Automatically fills nulls, removes duplicates, fixes data types, and flags outliers. |
+| 🤖 **Agentic Analysis** | Ask up to 10 questions in plain English. The AI writes the code to answer them! |
+| 📊 **Interactive Charts** | Bar, line, scatter, pie, heatmap, box — generated using `react-plotly.js`. |
+| 💡 **Analyst Insights** | Gemini generates a 3–4 sentence professional narrative explaining the trends in each chart. |
+| 📤 **Export Reports** | Download a **PDF Report**, **PowerPoint Slides**, or the **Cleaned Excel File**. |
+| 🌑 **Premium UI** | Bloomberg-meets-Vercel dark aesthetic with an animated HTML5 Canvas particle background. |
 
 ---
 
 ## 🏗️ Tech Stack
 
 ### Frontend
-- React 18 + Vite
-- Tailwind CSS v4
-- Plotly.js (react-plotly.js)
-- Axios + react-dropzone + react-hot-toast
+- **React 18** + **Vite**
+- **Tailwind CSS v4** (Custom Dark Theme Tokens)
+- **Plotly.js** (`react-plotly.js`) for interactive charting
+- **Axios** + `react-dropzone` + `react-hot-toast`
 
 ### Backend
-- FastAPI (Python)
-- Google Gemini 1.5 Flash API
-- Pandas + NumPy + Plotly (Python)
-- ReportLab (PDF), python-pptx (PPT), OpenPyXL (Excel)
-- Sentry for error monitoring
+- **FastAPI** (Python)
+- **Google Gemini 2.0 Flash API** (`google-genai` SDK)
+- **Pandas** + **NumPy** for data manipulation
+- **ReportLab** (PDF), **python-pptx** (PPT), **OpenPyXL** (Excel)
+- **Kaleido** for server-side chart-to-image conversion
 
 ---
 
@@ -48,7 +114,7 @@ DataSense is a full-stack, AI-powered Exploratory Data Analysis (EDA) tool that 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- A Google Gemini API key ([get one here](https://makersuite.google.com/app/apikey))
+- A Google Gemini API key ([Get one here](https://aistudio.google.com/app/apikey))
 
 ### 1. Clone the repo
 
@@ -72,18 +138,17 @@ pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Open .env and add your GEMINI_API_KEY
 
 # Start the backend
 python main.py
 # → Backend runs at http://localhost:8000
-# → API docs at http://localhost:8000/docs
 ```
 
 ### 3. Frontend setup
 
 ```bash
-cd datasense/frontend
+cd ../frontend
 
 # Install dependencies
 npm install
@@ -93,81 +158,32 @@ npm run dev
 # → Frontend runs at http://localhost:5173
 ```
 
-### 4. Open in browser
-
-Navigate to [http://localhost:5173](http://localhost:5173)
+Navigate to [http://localhost:5173](http://localhost:5173) in your browser!
 
 ---
 
 ## 📖 Example Questions to Try
 
-Upload a sales or HR dataset and ask:
+Upload any sales, HR, or financial dataset and try asking:
 
-- *"What is the distribution of sales by region?"*
-- *"Show the trend of revenue over time"*
-- *"Which product category has the highest average profit?"*
-- *"What is the correlation between age and salary?"*
-- *"Show the top 10 customers by order value"*
+1. *"What is the distribution of sales by region?"*
+2. *"Show the trend of revenue over time"*
+3. *"Which product category has the highest average profit?"*
+4. *"What is the correlation between age and salary?"*
+5. *"Show the top 10 customers by order value"*
 
----
-
-## 📁 Project Structure
-
-```
-datasense/
-├── backend/
-│   ├── main.py               # FastAPI entry point
-│   ├── session_store.py      # In-memory session management
-│   ├── routes/
-│   │   ├── upload.py         # POST /api/upload
-│   │   ├── analyze.py        # POST /api/analyze, /suggest
-│   │   └── export.py         # GET /api/export/{pdf,ppt,excel}
-│   ├── services/
-│   │   ├── cleaning_service.py   # Data cleaning pipeline
-│   │   ├── llm_service.py        # Gemini 1.5 Flash integration
-│   │   ├── execution_service.py  # Sandboxed code execution
-│   │   └── export_service.py     # PDF/PPT/Excel generation
-│   ├── models/schemas.py     # Pydantic data models
-│   └── requirements.txt
-└── frontend/
-    └── src/
-        ├── components/       # Navbar, Upload, Preview, Cards, Sidebar...
-        ├── pages/            # LandingPage, DashboardPage
-        ├── services/api.js   # Axios API calls
-        └── index.css         # Global design system
-```
+> **Pro Tip:** If you don't know what to ask, just click the **"✨ Suggest Questions"** button and let the AI generate 5 highly relevant questions for you based on your specific dataset schema!
 
 ---
 
-## 🔐 Security
+## 🔐 Security & Sandbox
 
-- API keys stored in `.env` only — never in source code
-- `.env` excluded from git via `.gitignore`
-- File uploads validated by magic bytes, not just extension
-- LLM-generated code runs in restricted `exec()` sandbox (no `__builtins__`)
-- Input sanitization removes code injection attempts from questions
-- CORS restricted to known origins
-
----
-
-## 📸 Screenshots
-
-> Screenshots coming after deployment
-
----
-
-## 📋 Implementation Phases
-
-- [x] **Phase 0** — Project setup, monorepo structure, all dependencies
-- [x] **Phase 1** — File upload + data preview
-- [x] **Phase 2** — LLM integration + code execution
-- [x] **Phase 3** — Chat Interface & Dashboard
-- [x] **Phase 4** — Export system (PDF/PPT/Excel)
-- [x] **Phase 5** — UI polish + full dashboard
-- [x] **Phase 6** — Production readiness + deployment
+- **No Data Leakage:** Only your dataset's *column names* and *3 sample rows* are sent to the Gemini API. The full dataset never leaves your local machine/server.
+- **Sandboxed Execution:** The Python code generated by the LLM is executed inside a restricted `exec()` environment where dangerous built-ins (`open`, `import`, `eval`) are blocked.
+- **Environment Variables:** API keys are loaded via `.env` and are safely ignored by git.
 
 ---
 
 ## 📄 License
 
-MIT License — free to use and modify.
+This project is licensed under the **MIT License** — feel free to use, modify, and distribute it!
