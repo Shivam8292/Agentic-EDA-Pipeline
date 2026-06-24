@@ -38,9 +38,14 @@ export default function App() {
     }
   };
 
+  const handleReset = () => {
+    setPreviewData(null);
+    setDatasetId(null);
+  };
+
   return (
     <ErrorBoundary>
-      <Navbar hasDataset={!!previewData} />
+      <Navbar hasDataset={!!previewData} onReset={previewData ? handleReset : undefined} />
       <Toaster
         position="bottom-right"
         toastOptions={{
@@ -67,3 +72,4 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+

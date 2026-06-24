@@ -46,9 +46,9 @@ def _validate_file_type(content: bytes, filename: str) -> str:
         return "csv"
 
     elif ext in ("xlsx", "xls"):
-        if ext == "xlsx" and not content[:4] == XLSX_MAGIC:
+        if ext == "xlsx" and content[:4] != XLSX_MAGIC:
             raise HTTPException(400, "File does not appear to be a valid Excel (.xlsx) file.")
-        if ext == "xls" and not content[:4] == XLS_MAGIC:
+        if ext == "xls" and content[:4] != XLS_MAGIC:
             raise HTTPException(400, "File does not appear to be a valid Excel (.xls) file.")
         return "excel"
 

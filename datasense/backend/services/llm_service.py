@@ -1,5 +1,5 @@
 """
-LLM Service — Google Gemini 1.5 Flash Integration.
+LLM Service — Google Gemini 2.0 Flash via google-genai SDK.
 
 Handles:
 - Building prompts from dataset schema + user question
@@ -14,7 +14,8 @@ import json
 import logging
 from typing import Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types as genai_types
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,8 +24,12 @@ logger = logging.getLogger(__name__)
 
 # Initialize Gemini client
 _api_key = os.getenv("GEMINI_API_KEY", "")
+_client: Optional[genai.Client] = None
+
 if _api_key:
-    genai.configure(api_key=_api_key)
+    _client = genai.Client(api_key=_api_key)
+
+GEMINI_MODEL = "gemini-2.0-flash"
 
 CHART_COLORS = ["#6366F1", "#A78BFA", "#10B981", "#F59E0B", "#EF4444", "#06B6D4", "#F97316"]
 
@@ -44,9 +49,8 @@ Your task:
 3. Use dark theme for the chart: paper_bgcolor='#111118', plot_bgcolor='#0A0A0F', font color white.
 4. Use these chart colors: {chart_colors}
 5. The dataframe is available as variable `df`.
-6. Keep the code concise and focused.
-7. Handle potential errors (e.g., missing columns) gracefully in the code.
-8. After the code block, write a 3-4 sentence professional analyst insight about what the chart reveals.
+6. Keep the code concise and focused. Handle missing columns gracefully.
+7. After the code block, write a 3-4 sentence professional analyst insight about what the chart reveals.
 
 Respond in EXACTLY this format (nothing before ```python, nothing between ``` and INSIGHT:):
 ```python
@@ -79,10 +83,9 @@ def _build_column_schema(column_info: list[dict]) -> str:
 
 
 def _build_sample_rows(sample_rows: list[dict]) -> str:
-    """Format sample rows for the prompt."""
+    """Format sample rows for the prompt (max 3 rows)."""
     if not sample_rows:
         return "No sample data available."
-    # Take max 3 rows
     rows = sample_rows[:3]
     lines = [str(row) for row in rows]
     return "\n".join(lines)
@@ -93,13 +96,17 @@ def _extract_code_and_insight(response_text: str) -> tuple[Optional[str], Option
     Parse LLM response to extract Python code block and insight text.
     Returns (code, insight) — either may be None if parsing fails.
     """
-    # Extract code block
-    code_match = re.search(r"```python\s*(.*?)```", response_text, re.DOTALL)
+    # Extract code block (handle ```python or just ```)
+    code_match = re.search(r"```(?:python)?\s*(.*?)```", response_text, re.DOTALL)
     code = code_match.group(1).strip() if code_match else None
 
-    # Extract insight
+    # Extract insight (everything after INSIGHT: label)
     insight_match = re.search(r"INSIGHT:\s*(.+)", response_text, re.DOTALL)
     insight = insight_match.group(1).strip() if insight_match else None
+
+    # If insight ends with a ``` block, trim it
+    if insight:
+        insight = insight.split("```")[0].strip()
 
     return code, insight
 
@@ -113,8 +120,8 @@ async def generate_chart_code(
     Call Gemini to generate plotly code and insight for a given question.
     Returns (code, insight). On failure, returns (None, None).
     """
-    if not _api_key:
-        logger.error("GEMINI_API_KEY not set")
+    if not _client:
+        logger.error("Gemini client not initialized — GEMINI_API_KEY not set")
         return None, None
 
     column_schema = _build_column_schema(column_info)
@@ -127,13 +134,12 @@ async def generate_chart_code(
         chart_colors=json.dumps(CHART_COLORS),
     )
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
     for attempt in range(2):  # retry once if malformed
         try:
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = _client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
                     temperature=0.2,
                     max_output_tokens=2048,
                 ),
@@ -141,10 +147,12 @@ async def generate_chart_code(
             response_text = response.text
             code, insight = _extract_code_and_insight(response_text)
 
-            if code:  # at least code must be present
+            if code:
+                logger.info(f"LLM generated code successfully for: {question[:50]}")
                 return code, insight
             else:
                 logger.warning(f"Attempt {attempt + 1}: could not parse LLM response. Retrying...")
+
         except Exception as e:
             logger.error(f"Gemini API error on attempt {attempt + 1}: {e}")
 
@@ -159,7 +167,7 @@ async def suggest_questions(
     Use Gemini to suggest 5 insightful questions based on dataset schema.
     Returns list of question strings (may be empty on failure).
     """
-    if not _api_key:
+    if not _client:
         return []
 
     column_schema = _build_column_schema(column_info)
@@ -170,23 +178,23 @@ async def suggest_questions(
         sample_rows=sample_str,
     )
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
+        response = _client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
                 temperature=0.4,
                 max_output_tokens=512,
             ),
         )
         text = response.text.strip()
-        # Try to parse JSON array
-        # Sometimes Gemini wraps it in ```json ... ```
+
+        # Try to parse JSON array (handle ```json wrapping)
         json_match = re.search(r"\[.*\]", text, re.DOTALL)
         if json_match:
             questions = json.loads(json_match.group(0))
             return [q for q in questions if isinstance(q, str)][:5]
+
     except Exception as e:
         logger.error(f"Error suggesting questions: {e}")
 

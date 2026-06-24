@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 /**
  * Navbar — sticky frosted glass header with logo and GitHub link.
  */
-export default function Navbar({ hasDataset }) {
+export default function Navbar({ hasDataset, onReset }) {
   return (
     <nav className="navbar">
       {/* Logo */}
@@ -50,22 +50,35 @@ export default function Navbar({ hasDataset }) {
       {/* Right side links */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         {hasDataset && (
-          <span style={{
-            fontSize: '12px',
-            color: 'var(--success)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{
-              width: '6px', height: '6px',
-              borderRadius: '50%',
-              background: 'var(--success)',
-              display: 'inline-block',
-              boxShadow: '0 0 8px var(--success)',
-            }} />
-            Dataset loaded
-          </span>
+              fontSize: '12px',
+              color: 'var(--success)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <span style={{
+                width: '6px', height: '6px',
+                borderRadius: '50%',
+                background: 'var(--success)',
+                display: 'inline-block',
+                boxShadow: '0 0 8px var(--success)',
+              }} />
+              Dataset loaded
+            </span>
+            {onReset && (
+              <button
+                id="upload-new-btn"
+                className="btn-ghost"
+                onClick={onReset}
+                style={{ fontSize: '12px', padding: '4px 10px' }}
+                title="Upload a new dataset"
+              >
+                ↑ New Dataset
+              </button>
+            )}
+          </div>
         )}
         <a
           href="https://github.com/Shivam8292/Agentic-EDA-Pipeline"
@@ -86,6 +99,7 @@ export default function Navbar({ hasDataset }) {
 
 Navbar.propTypes = {
   hasDataset: PropTypes.bool,
+  onReset: PropTypes.func,
 };
 
 Navbar.defaultProps = {
