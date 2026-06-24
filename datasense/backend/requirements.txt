@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pandas
+numpy
+plotly
+matplotlib
+seaborn
+openpyxl
+reportlab
+python-pptx
+google-generativeai
+python-dotenv
+sentry-sdk[fastapi]
+xlrd
+kaleido
+pillow
