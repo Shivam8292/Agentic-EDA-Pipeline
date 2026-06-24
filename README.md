@@ -162,7 +162,7 @@ datasense/
 - [x] **Phase 1** — File upload + data preview
 - [x] **Phase 2** — LLM integration + code execution
 - [x] **Phase 3** — Chat Interface & Dashboard
-- [ ] **Phase 4** — Export system (PDF/PPT/Excel)
+- [x] **Phase 4** — Export system (PDF/PPT/Excel)
 - [ ] **Phase 5** — UI polish + full dashboard
 - [ ] **Phase 6** — Production readiness + deployment
 
