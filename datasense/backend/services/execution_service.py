@@ -2,14 +2,14 @@
 Code Execution Service.
 
 Safely executes LLM-generated pandas/plotly code in a restricted sandbox.
-- Timeout: 30 seconds per execution
 - Restricted globals (no builtins access)
 - Returns Plotly figure JSON or error
+- Windows-compatible (no SIGALRM)
 """
 
 import logging
 import re
-import signal
+import threading
 from typing import Any, Optional
 
 import numpy as np
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 EXECUTION_TIMEOUT_SECONDS = 30
 
-# Modules allowed in exec sandbox
+# Safe builtins and modules allowed in exec sandbox
 SAFE_GLOBALS: dict[str, Any] = {
     "__builtins__": {
         "print": print,
@@ -52,6 +52,10 @@ SAFE_GLOBALS: dict[str, Any] = {
         "None": None,
         "True": True,
         "False": False,
+        "ValueError": ValueError,
+        "KeyError": KeyError,
+        "TypeError": TypeError,
+        "Exception": Exception,
     },
     "pd": pd,
     "np": np,
@@ -62,30 +66,58 @@ SAFE_GLOBALS: dict[str, Any] = {
 
 def _sanitize_question(question: str) -> str:
     """Strip potential code injection from question text before sending to LLM."""
-    # Remove script tags, backticks, exec/eval calls
     sanitized = re.sub(r"[`<>]", "", question)
     sanitized = re.sub(r"\b(exec|eval|import|__import__|open|os|sys)\b", "", sanitized)
     return sanitized.strip()
 
 
 def _infer_chart_type(code: str) -> str:
-    """Infer the chart type from the generated code."""
-    code_lower = code.lower()
-    if "px.bar" in code_lower or "go.bar" in code_lower:
-        return "bar"
-    elif "px.line" in code_lower or "go.scatter" in code_lower and "lines" in code_lower:
-        return "line"
-    elif "px.scatter" in code_lower or "go.scatter" in code_lower:
-        return "scatter"
-    elif "px.pie" in code_lower or "go.pie" in code_lower:
+    """Infer chart type from the generated code string."""
+    c = code.lower()
+    if "px.pie" in c or "go.pie" in c:
         return "pie"
-    elif "heatmap" in code_lower:
+    if "heatmap" in c:
         return "heatmap"
-    elif "px.box" in code_lower or "go.box" in code_lower:
+    if "px.box" in c or "go.box" in c:
         return "box"
-    elif "px.histogram" in code_lower or "go.histogram" in code_lower:
+    if "px.histogram" in c or "go.histogram" in c:
         return "histogram"
+    if "px.scatter" in c:
+        return "scatter"
+    if "go.scatter" in c:
+        # go.Scatter can be lines or scatter depending on mode
+        return "line" if "lines" in c else "scatter"
+    if "px.line" in c or "go.line" in c:
+        return "line"
+    if "px.bar" in c or "go.bar" in c:
+        return "bar"
     return "bar"  # default fallback
+
+
+def _run_with_timeout(fn, timeout_seconds: int) -> Any:
+    """
+    Run fn() in a thread with a timeout.
+    Returns the result or raises TimeoutError.
+    Windows-compatible (no SIGALRM).
+    """
+    result = [None]
+    error = [None]
+
+    def target():
+        try:
+            result[0] = fn()
+        except Exception as e:
+            error[0] = e
+
+    t = threading.Thread(target=target, daemon=True)
+    t.start()
+    t.join(timeout=timeout_seconds)
+
+    if t.is_alive():
+        raise TimeoutError(f"Execution exceeded {timeout_seconds}s timeout")
+    if error[0] is not None:
+        raise error[0]
+    return result[0]
 
 
 def execute_chart_code(
@@ -96,7 +128,7 @@ def execute_chart_code(
     Execute LLM-generated chart code in a restricted sandbox.
 
     Args:
-        code: Python code string (should produce variable `fig`)
+        code: Python code string (must assign variable `fig`)
         df: The cleaned DataFrame
 
     Returns:
@@ -104,30 +136,33 @@ def execute_chart_code(
     """
     exec_globals = {**SAFE_GLOBALS, "df": df.copy()}
 
-    try:
-        # Execute the code
+    def _exec():
         exec(code, exec_globals)  # noqa: S102
+        return exec_globals.get("fig")
 
-        fig = exec_globals.get("fig")
+    try:
+        fig = _run_with_timeout(_exec, EXECUTION_TIMEOUT_SECONDS)
+
         if fig is None:
             return {
                 "chart_json": None,
                 "chart_type": None,
                 "status": "failed",
-                "error_message": "Code executed but `fig` variable was not found.",
+                "error_message": "Code ran but `fig` variable was not assigned.",
             }
 
         # Apply consistent dark theme overrides
         fig.update_layout(
             paper_bgcolor="#111118",
             plot_bgcolor="#0A0A0F",
-            font={"color": "#F0F0F5"},
-            margin={"l": 40, "r": 40, "t": 50, "b": 40},
+            font={"color": "#F0F0F5", "family": "Inter, sans-serif"},
+            margin={"l": 50, "r": 40, "t": 50, "b": 50},
         )
 
         chart_json = fig.to_json()
         chart_type = _infer_chart_type(code)
 
+        logger.info(f"Chart executed successfully: type={chart_type}")
         return {
             "chart_json": chart_json,
             "chart_type": chart_type,
@@ -135,15 +170,16 @@ def execute_chart_code(
             "error_message": None,
         }
 
-    except TimeoutError:
+    except TimeoutError as e:
+        logger.warning(f"Execution timeout: {e}")
         return {
             "chart_json": None,
             "chart_type": None,
             "status": "failed",
-            "error_message": "Code execution timed out after 30 seconds.",
+            "error_message": f"Code execution timed out after {EXECUTION_TIMEOUT_SECONDS}s.",
         }
     except Exception as e:
-        logger.error(f"Code execution error: {e}")
+        logger.error(f"Code execution error: {type(e).__name__}: {e}")
         return {
             "chart_json": None,
             "chart_type": None,

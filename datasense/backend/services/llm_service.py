@@ -111,6 +111,8 @@ def _extract_code_and_insight(response_text: str) -> tuple[Optional[str], Option
     return code, insight
 
 
+import asyncio
+
 async def generate_chart_code(
     question: str,
     column_info: list[dict],
@@ -134,7 +136,9 @@ async def generate_chart_code(
         chart_colors=json.dumps(CHART_COLORS),
     )
 
-    for attempt in range(2):  # retry once if malformed
+    max_retries = 3
+    base_delay = 4
+    for attempt in range(max_retries):
         try:
             response = _client.models.generate_content(
                 model=GEMINI_MODEL,
@@ -154,7 +158,14 @@ async def generate_chart_code(
                 logger.warning(f"Attempt {attempt + 1}: could not parse LLM response. Retrying...")
 
         except Exception as e:
-            logger.error(f"Gemini API error on attempt {attempt + 1}: {e}")
+            error_msg = str(e)
+            logger.error(f"Gemini API error on attempt {attempt + 1}: {error_msg}")
+            if "429" in error_msg or "QuotaFailure" in error_msg or "exhausted" in error_msg.lower():
+                if attempt < max_retries - 1:
+                    logger.info("Rate limited. Waiting 60s for minute-quota to reset before retrying...")
+                    await asyncio.sleep(60)
+                    continue
+            # If it's not a rate limit error or we ran out of retries, we stop trying
 
     return None, None
 
@@ -178,24 +189,37 @@ async def suggest_questions(
         sample_rows=sample_str,
     )
 
-    try:
-        response = _client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=genai_types.GenerateContentConfig(
-                temperature=0.4,
-                max_output_tokens=512,
-            ),
-        )
-        text = response.text.strip()
+    max_retries = 3
+    base_delay = 4
+    for attempt in range(max_retries):
+        try:
+            response = _client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.4,
+                    max_output_tokens=512,
+                ),
+            )
+            text = response.text.strip()
 
-        # Try to parse JSON array (handle ```json wrapping)
-        json_match = re.search(r"\[.*\]", text, re.DOTALL)
-        if json_match:
-            questions = json.loads(json_match.group(0))
-            return [q for q in questions if isinstance(q, str)][:5]
+            # Try to parse JSON array (handle ```json wrapping)
+            json_match = re.search(r"\[.*\]", text, re.DOTALL)
+            if json_match:
+                questions = json.loads(json_match.group(0))
+                return [q for q in questions if isinstance(q, str)][:5]
+            
+            return []
 
-    except Exception as e:
-        logger.error(f"Error suggesting questions: {e}")
-
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Error suggesting questions on attempt {attempt + 1}: {error_msg}")
+            if "429" in error_msg or "QuotaFailure" in error_msg or "exhausted" in error_msg.lower():
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.info(f"Rate limited in suggest. Waiting {delay}s before retrying...")
+                    await asyncio.sleep(delay)
+                    continue
+            return []
+            
     return []
