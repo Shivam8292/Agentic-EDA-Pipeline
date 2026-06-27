@@ -9,7 +9,7 @@ seaborn
 openpyxl
 reportlab
 python-pptx
-google-genai
+groq
 python-dotenv
 sentry-sdk[fastapi]
 xlrd

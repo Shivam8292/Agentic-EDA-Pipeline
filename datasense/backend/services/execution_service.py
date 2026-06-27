@@ -56,6 +56,7 @@ SAFE_GLOBALS: dict[str, Any] = {
         "KeyError": KeyError,
         "TypeError": TypeError,
         "Exception": Exception,
+        "__import__": __import__,
     },
     "pd": pd,
     "np": np,
